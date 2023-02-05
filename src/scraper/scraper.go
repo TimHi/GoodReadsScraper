@@ -30,9 +30,11 @@ func ScrapBook(id string) {
 
 	// Find and visit all links
 	c.OnHTML("div.BookPageMetadataSection__ratingStats", func(e *colly.HTMLElement) {
-		fmt.Println("FUCK")
+		fmt.Println("Rating")
 	})
-
+	c.OnHTML("div.ContributorLinksList", func(e *colly.HTMLElement) {
+		fmt.Println("Contributors")
+	})
 	c.OnRequest(func(r *colly.Request) {
 		fmt.Println("Visiting", r.URL)
 	})
