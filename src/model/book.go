@@ -9,6 +9,4 @@ type Book struct {
 	BookURL       string
 	Pages         int
 	PublishedDate string
-	RatingCount   int
-	ReviewCount   int
 }

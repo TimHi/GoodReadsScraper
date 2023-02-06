@@ -32,8 +32,6 @@ func ScrapBook(id string) model.Book {
 	scrapedBook := model.Book{}
 
 	c.OnHTML("div.RatingStatistics__rating", func(e *colly.HTMLElement) {
-		fmt.Println("Wasd")
-		fmt.Println(e.Text)
 		scrapedBook.Rating = stringutil.ParseFloat64(e.Text)
 	})
 
@@ -41,6 +39,16 @@ func ScrapBook(id string) model.Book {
 		e.ForEach("a.ContributorLink", func(_ int, el *colly.HTMLElement) {
 			scrapedBook.Authors = append(scrapedBook.Authors, el.Text)
 		})
+	})
+
+	c.OnHTML("ul.CollapsableList", func(ul *colly.HTMLElement) {
+		ul.ForEach("span.BookPageMetadataSection__genreButton", func(_ int, el *colly.HTMLElement) {
+			scrapedBook.Genres = append(scrapedBook.Genres, el.Text)
+		})
+	})
+
+	c.OnHTML("div.FeaturedDetails", func(div *colly.HTMLElement) {
+		fmt.Println(div.Text) // TODO Parse
 	})
 
 	c.Visit(BASE_URL + BOOK_ENDPOINT + id)
