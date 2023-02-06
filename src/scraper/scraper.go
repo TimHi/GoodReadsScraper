@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gocolly/colly"
+	"github.com/timhi/goodreadscraper/m/v2/src/model"
+	"github.com/timhi/swiss-army-knife/src/stringutil"
 )
 
 var BASE_URL = "https://www.goodreads.com/"
@@ -25,19 +27,23 @@ func ScrapeAuthor(id string) {
 	c.Visit(BASE_URL + AUTHOR_ENDPOINT + id)
 }
 
-func ScrapBook(id string) {
+func ScrapBook(id string) model.Book {
 	c := colly.NewCollector()
+	scrapedBook := model.Book{}
 
-	// Find and visit all links
-	c.OnHTML("div.BookPageMetadataSection__ratingStats", func(e *colly.HTMLElement) {
-		fmt.Println("Rating")
+	c.OnHTML("div.RatingStatistics__rating", func(e *colly.HTMLElement) {
+		fmt.Println("Wasd")
+		fmt.Println(e.Text)
+		scrapedBook.Rating = stringutil.ParseFloat64(e.Text)
 	})
+
 	c.OnHTML("div.ContributorLinksList", func(e *colly.HTMLElement) {
-		fmt.Println("Contributors")
-	})
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
+		e.ForEach("a.ContributorLink", func(_ int, el *colly.HTMLElement) {
+			scrapedBook.Authors = append(scrapedBook.Authors, el.Text)
+		})
 	})
 
 	c.Visit(BASE_URL + BOOK_ENDPOINT + id)
+
+	return scrapedBook
 }
