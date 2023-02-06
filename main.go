@@ -12,6 +12,7 @@ func main() {
 	flag.Parse()
 	if *bookID != "" {
 		// E.g go run main.go -book 18144590
-		fmt.Println(scraper.ScrapBook(*bookID))
+		b := scraper.ScrapBook(*bookID)
+		fmt.Println(b)
 	}
 }

@@ -2,6 +2,7 @@ package scraper
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gocolly/colly"
 	"github.com/timhi/goodreadscraper/m/v2/src/model"
@@ -48,7 +49,10 @@ func ScrapBook(id string) model.Book {
 	})
 
 	c.OnHTML("div.FeaturedDetails", func(div *colly.HTMLElement) {
-		fmt.Println(div.Text) // TODO Parse
+		featureDetails := strings.Split(div.Text, " ")
+		scrapedBook.Pages = stringutil.ParseNumber(featureDetails[0])
+		scrapedBook.PublishedDate = featureDetails[4] + " " + featureDetails[5]
+
 	})
 
 	c.Visit(BASE_URL + BOOK_ENDPOINT + id)
