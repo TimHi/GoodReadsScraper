@@ -1,61 +1,97 @@
 package scraper
 
 import (
+	"context"
 	"fmt"
-	"strings"
+	"log"
 
-	"github.com/gocolly/colly"
+	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/chromedp"
 	"github.com/timhi/goodreadscraper/m/v2/src/model"
-	"github.com/timhi/swiss-army-knife/src/stringutil"
 )
 
-var BASE_URL = "https://www.goodreads.com/"
-var AUTHOR_ENDPOINT = "author/show/"
-var BOOK_ENDPOINT = "book/show/"
+func ScrapeBook(id string) model.Book {
+	book := model.Book{}
 
-func ScrapeAuthor(id string) {
-	c := colly.NewCollector()
+	// initializing a chrome instance
+	ctx, cancel := chromedp.NewContext(
+		context.Background(),
+		chromedp.WithLogf(log.Printf),
+	)
+	defer cancel()
 
-	// Find and visit all links
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		e.Request.Visit(e.Attr("href"))
-	})
+	// navigate to the target web page and select the HTML elements of interest
+	var nodes []*cdp.Node
 
-	c.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL)
-	})
+	err := chromedp.Run(ctx,
+		chromedp.Navigate("https://www.goodreads.com/book/show/18144590"),
+		chromedp.Nodes(".BookPage", &nodes, chromedp.ByQueryAll),
+	)
+	if err != nil {
+		fmt.Println(err)
+		chromedp.Cancel(ctx)
+	}
+	var bookName string
 
-	c.Visit(BASE_URL + AUTHOR_ENDPOINT + id)
+	err = chromedp.Run(ctx,
+		chromedp.Click(`//div[@class="Button__container"]/button[@class="Button Button--inline Button--small"][@aria-label="Book details and editions"]`, chromedp.NodeVisible),
+		chromedp.WaitVisible(`//div[@class="DescListItem"]//div[@class="TruncatedContent__text TruncatedContent__text--small"]`, chromedp.BySearch),
+		chromedp.Text(".BookPageTitleSection__title", &bookName, chromedp.ByQuery, chromedp.FromNode(nodes[0])),
+	)
+	if err != nil {
+		fmt.Println(err)
+		chromedp.Cancel(ctx)
+	}
+
+	book.Title = bookName
+	detail, err := getBookDetails(ctx)
+	if err != nil {
+		log.Panic(err)
+	}
+	book.Details = detail
+	return book
 }
 
-func ScrapBook(id string) model.Book {
-	c := colly.NewCollector()
-	scrapedBook := model.Book{}
+func getBookDetails(ctx context.Context) (model.EditionDetail, error) {
+	dtNodes, err := getEditionDetailListNodes(ctx)
+	if err != nil {
+		return model.EditionDetail{}, err
+	}
+	return getDetailValues(ctx, dtNodes)
+}
 
-	c.OnHTML("div.RatingStatistics__rating", func(e *colly.HTMLElement) {
-		scrapedBook.Rating = stringutil.ParseFloat64(e.Text)
-	})
+func getEditionDetailListNodes(ctx context.Context) ([]*cdp.Node, error) {
+	var dtNodes []*cdp.Node
+	err := chromedp.Run(ctx,
+		chromedp.Nodes(`//div[@class="EditionDetails"]//dl[@class="DescList"]//div[@class="DescListItem"]`, &dtNodes, chromedp.BySearch))
+	if err != nil {
+		return dtNodes, err
+	}
+	return dtNodes, nil
+}
 
-	c.OnHTML("div.ContributorLinksList", func(e *colly.HTMLElement) {
-		e.ForEach("a.ContributorLink", func(_ int, el *colly.HTMLElement) {
-			scrapedBook.Authors = append(scrapedBook.Authors, el.Text)
-		})
-	})
+func getDetailValues(ctx context.Context, dtNodes []*cdp.Node) (model.EditionDetail, error) {
+	detail := model.EditionDetail{}
+	var key, value string
+	for _, node := range dtNodes {
+		err := chromedp.Run(ctx,
+			chromedp.Text("dt", &key, chromedp.ByQuery, chromedp.FromNode(node)),
+			chromedp.Text("dd", &value, chromedp.ByQuery, chromedp.FromNode(node)),
+		)
+		if err != nil {
+			return model.EditionDetail{}, err
+		}
+		switch key {
+		case "Format":
+			detail.Format = value
+		case "Published":
+			detail.Published = value
+		case "ISBN":
+			detail.ISBN = value
+		case "Language":
+			detail.Language = value
+		}
+	}
 
-	c.OnHTML("ul.CollapsableList", func(ul *colly.HTMLElement) {
-		ul.ForEach("span.BookPageMetadataSection__genreButton", func(_ int, el *colly.HTMLElement) {
-			scrapedBook.Genres = append(scrapedBook.Genres, el.Text)
-		})
-	})
-
-	c.OnHTML("div.FeaturedDetails", func(div *colly.HTMLElement) {
-		featureDetails := strings.Split(div.Text, " ")
-		scrapedBook.Pages = stringutil.ParseNumber(featureDetails[0])
-		scrapedBook.PublishedDate = featureDetails[4] + " " + featureDetails[5]
-
-	})
-
-	c.Visit(BASE_URL + BOOK_ENDPOINT + id)
-
-	return scrapedBook
+	return detail, nil
 }
