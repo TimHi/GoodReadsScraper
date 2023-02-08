@@ -44,12 +44,52 @@ func ScrapeBook(id string) model.Book {
 	}
 
 	book.Title = bookName
+
+	log.Println("Getting Book Details 🦫")
 	detail, err := getBookDetails(ctx)
 	if err != nil {
+		log.Println("Scraping Details Failed 💥")
 		log.Panic(err)
 	}
+
+	log.Println("Details scraped successfull ✅")
 	book.Details = detail
+
+	log.Println("Getting Book Genres 🦫")
+	genres, genreError := getBookGenres(ctx)
+	if genreError != nil {
+		log.Println("Scraping Genres Failed 💥")
+		log.Panic(err)
+	}
+	log.Println("Genres scraped successfull ✅")
+	book.Genres = genres
+
 	return book
+}
+
+func getBookGenres(ctx context.Context) ([]string, error) {
+	genres := []string{}
+	var genreNodes []*cdp.Node
+
+	err := chromedp.Run(ctx,
+		chromedp.Nodes(`//div[@class="BookPageMetadataSection__genres"]//ul[@class="CollapsableList"]//span//span[@class="BookPageMetadataSection__genreButton"]`, &genreNodes, chromedp.BySearch))
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, node := range genreNodes {
+		var text string
+		chromedp.Run(ctx,
+			chromedp.Text("a", &text, chromedp.ByQuery, chromedp.FromNode(node)))
+		genres = append(genres, text)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return genres, nil
 }
 
 func getBookDetails(ctx context.Context) (model.EditionDetail, error) {
