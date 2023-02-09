@@ -23,7 +23,7 @@ func ScrapeBook(id string) model.Book {
 	var nodes []*cdp.Node
 
 	err := chromedp.Run(ctx,
-		chromedp.Navigate("https://www.goodreads.com/book/show/18144590"),
+		chromedp.Navigate(book.BookURL),
 		chromedp.Nodes(".BookPage", &nodes, chromedp.ByQueryAll),
 	)
 	if err != nil {
@@ -188,6 +188,7 @@ func getBookCover(ctx context.Context, node *cdp.Node) (string, error) {
 	}
 
 	var ok bool
+	var obj interface{}
 	err = chromedp.Run(ctx,
 		chromedp.WaitVisible(".ResponsiveImage", chromedp.BySearch),
 		chromedp.Evaluate(`(function() {
@@ -200,7 +201,7 @@ func getBookCover(ctx context.Context, node *cdp.Node) (string, error) {
                 }
             }, 50);
         });
-    })()`, &ok),
+    })()`, obj),
 		chromedp.AttributeValue(".ResponsiveImage", "src", &cover, &ok, chromedp.BySearch),
 	)
 
