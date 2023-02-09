@@ -189,6 +189,7 @@ func getBookCover(ctx context.Context, node *cdp.Node) (string, error) {
 
 	var ok bool
 	var obj interface{}
+	// Image is not loaded on page load instead there is a placeholder image.
 	err = chromedp.Run(ctx,
 		chromedp.WaitVisible(".ResponsiveImage", chromedp.BySearch),
 		chromedp.Evaluate(`(function() {
