@@ -1,19 +1,18 @@
 package model
 
 type Book struct {
-	Authors  []string
-	Rating   float64
-	Genres   []string
-	Title    string
-	CoverURL string
-	BookURL  string
-	Pages    int
-	Details  EditionDetail
+	Authors  []string      `json:"authors"`
+	Rating   float64       `json:"rating"`
+	Genres   []string      `json:"genres"`
+	Title    string        `json:"title"`
+	CoverURL string        `json:"coverurl"`
+	BookURL  string        `json:"bookurl"`
+	Details  EditionDetail `json:"editiondetail"`
 }
 
 type EditionDetail struct {
-	Format    string
-	Published string
-	ISBN      string
-	Language  string
+	Format    string `json:"format"`
+	Published string `json:"published"`
+	ISBN      string `json:"isbn"`
+	Language  string `json:"language"`
 }

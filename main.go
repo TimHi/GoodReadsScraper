@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -8,6 +9,9 @@ import (
 )
 
 func main() {
-	log.Println("Start scraping 🦫")
-	fmt.Println(scraper.ScrapeBook("123"))
+	log.Println("Starting headless browser, this might take a second... 🦫")
+	result := scraper.ScrapeBook("123")
+	res2B, _ := json.Marshal(result)
+	fmt.Println(string(res2B))
+
 }

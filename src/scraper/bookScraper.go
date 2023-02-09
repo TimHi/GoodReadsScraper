@@ -2,17 +2,17 @@ package scraper
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 	"github.com/timhi/goodreadscraper/m/v2/src/model"
+	"github.com/timhi/swiss-army-knife/src/stringutil"
 )
 
 func ScrapeBook(id string) model.Book {
 	book := model.Book{}
-
+	book.BookURL = "https://www.goodreads.com/book/show/" + id
 	// initializing a chrome instance
 	ctx, cancel := chromedp.NewContext(
 		context.Background(),
@@ -20,7 +20,6 @@ func ScrapeBook(id string) model.Book {
 	)
 	defer cancel()
 
-	// navigate to the target web page and select the HTML elements of interest
 	var nodes []*cdp.Node
 
 	err := chromedp.Run(ctx,
@@ -28,22 +27,26 @@ func ScrapeBook(id string) model.Book {
 		chromedp.Nodes(".BookPage", &nodes, chromedp.ByQueryAll),
 	)
 	if err != nil {
-		fmt.Println(err)
-		chromedp.Cancel(ctx)
+		log.Panic(err)
 	}
 	var bookName string
+	var rating string
 
+	if len(nodes) != 1 {
+		log.Panic("More nodes than expected")
+	}
 	err = chromedp.Run(ctx,
 		chromedp.Click(`//div[@class="Button__container"]/button[@class="Button Button--inline Button--small"][@aria-label="Book details and editions"]`, chromedp.NodeVisible),
 		chromedp.WaitVisible(`//div[@class="DescListItem"]//div[@class="TruncatedContent__text TruncatedContent__text--small"]`, chromedp.BySearch),
 		chromedp.Text(".BookPageTitleSection__title", &bookName, chromedp.ByQuery, chromedp.FromNode(nodes[0])),
+		chromedp.Text(".RatingStatistics__rating", &rating, chromedp.ByQuery, chromedp.FromNode(nodes[0])),
 	)
 	if err != nil {
-		fmt.Println(err)
-		chromedp.Cancel(ctx)
+		log.Panic(err)
 	}
 
 	book.Title = bookName
+	book.Rating = stringutil.ParseFloat64(rating)
 
 	log.Println("Getting Book Details 🦫")
 	detail, err := getBookDetails(ctx)
@@ -59,12 +62,51 @@ func ScrapeBook(id string) model.Book {
 	genres, genreError := getBookGenres(ctx)
 	if genreError != nil {
 		log.Println("Scraping Genres Failed 💥")
-		log.Panic(err)
+		log.Panic(genreError)
 	}
 	log.Println("Genres scraped successfull ✅")
 	book.Genres = genres
 
+	log.Println("Getting Book Authors 🦫")
+	authors, authorError := getBookAuthors(ctx, nodes[0])
+	if authorError != nil {
+		log.Println("Scraping Authors Failed 💥")
+		log.Panic(authorError)
+	}
+	log.Println("Authors scraped successfull ✅")
+	book.Authors = authors
+
+	log.Println("Getting Book Cover 🦫")
+	coverURL, coverError := getBookCover(ctx, nodes[0])
+	if coverError != nil {
+		log.Println("Scraping Cover Failed 💥")
+		log.Panic(coverError)
+	}
+	log.Println("Cover scraped successfull ✅")
+	book.CoverURL = coverURL
+
 	return book
+}
+
+func getBookAuthors(ctx context.Context, node *cdp.Node) ([]string, error) {
+	authors := []string{}
+	var contributorNodes []*cdp.Node
+	err := chromedp.Run(ctx,
+		chromedp.Nodes(`.ContributorLink`, &contributorNodes, chromedp.ByQueryAll))
+	if err != nil {
+		return authors, err
+	}
+	var authorText string
+	for _, node := range contributorNodes {
+		err = chromedp.Run(ctx,
+			chromedp.Text("span", &authorText, chromedp.ByQuery, chromedp.FromNode(node)))
+		if err != nil {
+			return authors, err
+		}
+		authors = append(authors, authorText)
+	}
+
+	return authors, err
 }
 
 func getBookGenres(ctx context.Context) ([]string, error) {
@@ -134,4 +176,36 @@ func getDetailValues(ctx context.Context, dtNodes []*cdp.Node) (model.EditionDet
 	}
 
 	return detail, nil
+}
+
+func getBookCover(ctx context.Context, node *cdp.Node) (string, error) {
+	cover := ""
+	var coverNode []*cdp.Node
+	err := chromedp.Run(ctx,
+		chromedp.Nodes(`.BookPage__bookCover`, &coverNode, chromedp.ByQueryAll))
+	if err != nil || len(coverNode) != 1 {
+		return cover, err
+	}
+
+	var ok bool
+	err = chromedp.Run(ctx,
+		chromedp.WaitVisible(".ResponsiveImage", chromedp.BySearch),
+		chromedp.Evaluate(`(function() {
+        var img = document.querySelector('.ResponsiveImage');
+        return new Promise(function(resolve, reject) {
+            var interval = setInterval(function() {
+                if (img.src !== 'https://d15be2nos83ntc.cloudfront.net/images/no-cover.png') {
+                    clearInterval(interval);
+                    resolve(true);
+                }
+            }, 50);
+        });
+    })()`, &ok),
+		chromedp.AttributeValue(".ResponsiveImage", "src", &cover, &ok, chromedp.BySearch),
+	)
+
+	if err != nil || !ok {
+		return cover, err
+	}
+	return cover, nil
 }
