@@ -13,7 +13,6 @@ import (
 func ScrapeBook(id string, ctx context.Context) model.Book {
 	book := model.Book{}
 	book.BookURL = "https://www.goodreads.com/book/show/" + id
-	// initializing a chrome instance
 
 	var nodes []*cdp.Node
 
