@@ -10,15 +10,10 @@ import (
 	"github.com/timhi/swiss-army-knife/src/stringutil"
 )
 
-func ScrapeBook(id string) model.Book {
+func ScrapeBook(id string, ctx context.Context) model.Book {
 	book := model.Book{}
 	book.BookURL = "https://www.goodreads.com/book/show/" + id
 	// initializing a chrome instance
-	ctx, cancel := chromedp.NewContext(
-		context.Background(),
-		chromedp.WithLogf(log.Printf),
-	)
-	defer cancel()
 
 	var nodes []*cdp.Node
 
