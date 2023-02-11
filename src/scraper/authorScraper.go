@@ -2,7 +2,6 @@ package scraper
 
 import (
 	"context"
-	"fmt"
 	"log"
 
 	"github.com/chromedp/cdproto/cdp"
@@ -31,7 +30,7 @@ func ScrapeAuthor(id string, ctx context.Context) model.Author {
 	if err != nil {
 		log.Panic(err)
 	}
-
+	log.Println("Getting authorLeftContainer")
 	var imageNode []*cdp.Node
 	var ok bool
 	err = chromedp.Run(ctx,
@@ -42,35 +41,23 @@ func ScrapeAuthor(id string, ctx context.Context) model.Author {
 		log.Panic(err)
 	}
 
-	err = chromedp.Run(ctx,
-		chromedp.AttributeValue("img", "src", &author.PhotoURL, &ok, chromedp.FromNode(imageNode[0])),
-	)
-	if err != nil || !ok {
-		//log.Panic(err)
+	log.Println("Getting Image")
+	var authorImgAlt string
+	err = chromedp.Run(ctx, chromedp.Tasks{
+		chromedp.WaitVisible(`//img[@itemprop='image']`, chromedp.BySearch),
+		chromedp.AttributeValue(`//img[@itemprop='image']`, "alt", &authorImgAlt, &ok),
+		chromedp.AttributeValue(`//img[@itemprop='image']`, "src", &author.PhotoURL, &ok),
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
-
+	log.Println(authorImgAlt)
 	author.Books = getBooks(ctx)
 	return author
 }
 
 func getBooks(ctx context.Context) []model.Book {
 	books := []model.Book{}
-	var bookNodes []*cdp.Node
-	err := chromedp.Run(ctx,
-		chromedp.Nodes(".stacked tableList", &bookNodes, chromedp.ByQueryAll), // get table nodes
-	)
-	fmt.Println(len(bookNodes))
-	if err != nil || len(bookNodes) == 0 {
-		log.Panic(err)
-	}
-	var ok bool
-	for _, node := range bookNodes {
-		var bookId string
-		err = chromedp.Run(ctx,
-			chromedp.AttributeValue("a", "href", &bookId, &ok, chromedp.FromNode(node)))
-		fmt.Println(bookId)
-		books = append(books, ScrapeBook(bookId, ctx))
-	}
-
+	//https://www.goodreads.com/author/list/566
 	return books
 }
