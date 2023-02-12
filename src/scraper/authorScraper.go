@@ -52,12 +52,6 @@ func ScrapeAuthor(id string, ctx context.Context) model.Author {
 		log.Fatal(err)
 	}
 	log.Println(authorImgAlt)
-	author.Books = getBooks(ctx)
+	author.Books = ScrapeList(ctx)
 	return author
-}
-
-func getBooks(ctx context.Context) []model.Book {
-	books := []model.Book{}
-	//https://www.goodreads.com/author/list/566
-	return books
 }
