@@ -2,6 +2,7 @@ package model
 
 type Author struct {
 	AuthorURL     string
+	ID            string
 	Name          string
 	Born          string
 	Died          string

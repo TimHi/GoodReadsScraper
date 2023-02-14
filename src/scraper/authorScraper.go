@@ -11,6 +11,7 @@ import (
 
 func ScrapeAuthor(id string, ctx context.Context) model.Author {
 	author := model.Author{}
+	author.ID = id
 	author.AuthorURL = "https://www.goodreads.com/author/show/" + id
 	var authorNode []*cdp.Node
 
@@ -52,6 +53,6 @@ func ScrapeAuthor(id string, ctx context.Context) model.Author {
 		log.Fatal(err)
 	}
 	log.Println(authorImgAlt)
-	author.Books = ScrapeList(ctx)
+	author.Books = ScrapeList(ctx, author.ID)
 	return author
 }
