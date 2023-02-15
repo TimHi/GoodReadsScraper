@@ -3,6 +3,7 @@ package scraper
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
@@ -10,9 +11,10 @@ import (
 	"github.com/timhi/swiss-army-knife/src/stringutil"
 )
 
-func ScrapeBook(id string, ctx context.Context) model.Book {
+func ScrapeBook(url string, ctx context.Context) model.Book {
+	log.Printf("Scraping %s \n", url)
 	book := model.Book{}
-	book.BookURL = "https://www.goodreads.com/book/show/" + id
+	book.BookURL = url
 
 	var nodes []*cdp.Node
 
@@ -20,6 +22,7 @@ func ScrapeBook(id string, ctx context.Context) model.Book {
 		chromedp.Navigate(book.BookURL),
 		chromedp.Nodes(".BookPage", &nodes, chromedp.ByQueryAll),
 	)
+	log.Println("Bookpage Node")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -29,14 +32,17 @@ func ScrapeBook(id string, ctx context.Context) model.Book {
 	if len(nodes) != 1 {
 		log.Panic("More nodes than expected")
 	}
-	err = chromedp.Run(ctx,
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err = chromedp.Run(timeoutCtx,
 		chromedp.Click(`//div[@class="Button__container"]/button[@class="Button Button--inline Button--small"][@aria-label="Book details and editions"]`, chromedp.NodeVisible),
 		chromedp.WaitVisible(`//div[@class="DescListItem"]//div[@class="TruncatedContent__text TruncatedContent__text--small"]`, chromedp.BySearch),
 		chromedp.Text(".BookPageTitleSection__title", &bookName, chromedp.ByQuery, chromedp.FromNode(nodes[0])),
 		chromedp.Text(".RatingStatistics__rating", &rating, chromedp.ByQuery, chromedp.FromNode(nodes[0])),
 	)
 	if err != nil {
-		log.Panic(err)
+		return model.Book{}
 	}
 
 	book.Title = bookName
@@ -46,7 +52,7 @@ func ScrapeBook(id string, ctx context.Context) model.Book {
 	detail, err := getBookDetails(ctx)
 	if err != nil {
 		log.Println("Scraping Details Failed 💥")
-		log.Panic(err)
+		detail = model.EditionDetail{}
 	}
 
 	log.Println("Details scraped successfull ✅")
@@ -56,7 +62,8 @@ func ScrapeBook(id string, ctx context.Context) model.Book {
 	genres, genreError := getBookGenres(ctx)
 	if genreError != nil {
 		log.Println("Scraping Genres Failed 💥")
-		log.Panic(genreError)
+		log.Println(genreError)
+		genres = []string{}
 	}
 	log.Println("Genres scraped successfull ✅")
 	book.Genres = genres
@@ -106,8 +113,10 @@ func getBookAuthors(ctx context.Context, node *cdp.Node) ([]string, error) {
 func getBookGenres(ctx context.Context) ([]string, error) {
 	genres := []string{}
 	var genreNodes []*cdp.Node
+	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-	err := chromedp.Run(ctx,
+	err := chromedp.Run(timeoutCtx,
 		chromedp.Nodes(`//div[@class="BookPageMetadataSection__genres"]//ul[@class="CollapsableList"]//span//span[@class="BookPageMetadataSection__genreButton"]`, &genreNodes, chromedp.BySearch))
 
 	if err != nil {
@@ -138,11 +147,16 @@ func getBookDetails(ctx context.Context) (model.EditionDetail, error) {
 
 func getEditionDetailListNodes(ctx context.Context) ([]*cdp.Node, error) {
 	var dtNodes []*cdp.Node
-	err := chromedp.Run(ctx,
+	timeoutCtx, cancel := context.WithTimeout(ctx, 4*time.Second)
+	defer cancel()
+	log.Println("Hanging here?")
+	err := chromedp.Run(timeoutCtx,
 		chromedp.Nodes(`//div[@class="EditionDetails"]//dl[@class="DescList"]//div[@class="DescListItem"]`, &dtNodes, chromedp.BySearch))
 	if err != nil {
+		log.Println("err!nil")
 		return dtNodes, err
 	}
+	log.Println("return nodes?")
 	return dtNodes, nil
 }
 

@@ -24,7 +24,8 @@ func main() {
 	log.Println("Starting headless browser, this might take a second... 🦫")
 	if *bookID != "" {
 		// E.g go run main.go -book 18144590
-		scrapedBook := scraper.ScrapeBook(*bookID, ctx)
+		bookURL := "https://www.goodreads.com/book/show/" + *bookID
+		scrapedBook := scraper.ScrapeBook(bookURL, ctx)
 		output.AsJson(scrapedBook)
 	}
 
